@@ -7,20 +7,41 @@ class MovingAverageCrossoverStrategy(BaseStrategy):
         self.long_window = long_window
         self.last_signal = "HOLD"
 
-    def evaluate(self, df: pd.DataFrame) -> dict:
+    def evaluate(self, df):
         if len(df) < self.long_window:
+            print(f"⏳ Waiting for enough data. Got {len(df)} rows, need {self.long_window}.")
             return {"action": "HOLD", "reason": "insufficient data"}
 
         df['short_ma'] = df['price'].rolling(self.short_window).mean()
         df['long_ma'] = df['price'].rolling(self.long_window).mean()
 
-        latest = df.iloc[-1]
+        short_ma = df['short_ma'].iloc[-1]
+        long_ma = df['long_ma'].iloc[-1]
+        latest_price = df['price'].iloc[-1]
 
-        if latest['short_ma'] > latest['long_ma'] and self.last_signal != "BUY":
+        print(f"📉 MA Debug — Short MA({self.short_window}): {short_ma:.5f}, "
+              f"Long MA({self.long_window}): {long_ma:.5f}, Price: {latest_price:.5f}")
+
+        if short_ma > long_ma and self.last_signal != "BUY":
             self.last_signal = "BUY"
-            return {"action": "BUY", "price": latest['price']}
-        elif latest['short_ma'] < latest['long_ma'] and self.last_signal != "SELL":
+            return {
+                "action": "BUY",
+                "price": latest_price,
+                "reason": f"short MA {short_ma:.5f} > long MA {long_ma:.5f}"
+            }
+
+        elif short_ma < long_ma and self.last_signal != "SELL":
             self.last_signal = "SELL"
-            return {"action": "SELL", "price": latest['price']}
+            return {
+                "action": "SELL",
+                "price": latest_price,
+                "reason": f"short MA {short_ma:.5f} < long MA {long_ma:.5f}"
+            }
+
         else:
-            return {"action": "HOLD", "price": latest['price']}
+            return {
+                "action": "HOLD",
+                "price": latest_price,
+                "reason": f"short MA {short_ma:.5f} ≈ long MA {long_ma:.5f}"
+            }
+
